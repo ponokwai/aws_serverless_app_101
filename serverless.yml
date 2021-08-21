@@ -30,7 +30,14 @@ provider:
   region: eu-west-1
 
 # you can add statements to the Lambda function's IAM Role here
-#  iamRoleStatements:
+ iamRoleStatements:
+  - Effect: Allow
+  Action:
+    - dynamodb:Query
+    - dynamodb:Scan
+    - dynamodb:GetItem
+    - dynamodb:PutItem
+  Resource: "*"
 #    - Effect: "Allow"
 #      Action:
 #        - "s3:ListBucket"
@@ -46,8 +53,9 @@ provider:
 #            - "/*"
 
 # you can define service wide environment variables here
-#  environment:
-#    variable1: value1
+ environment:
+   CANDIDATE_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+   CANDIDATE_EMAIL_TABLE: "candidate-email-${opt:stage, self:provider.stage}"
 
 # you can add packaging information here
 #package:
@@ -116,6 +124,26 @@ functions:
 #      variable2: value2
 
 # you can add CloudFormation resource templates here
+resources:
+  Resources:
+    CandidatesDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: "id"
+            AttributeType: "S"   
+        KeySchema:
+          -
+            AttributeName: "id"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: "NEW_AND_OLD_IMAGES"
+        TableName: ${self:provider.environment.CANDIDATE_TABLE}
 #resources:
 #  Resources:
 #    NewResource:
