@@ -1,31 +1,66 @@
 'use strict';
 
-module.exports.submit = (event, context, callback) => {
-  const response = {
+const uuid = require('uuid');
+const AWS = require('aws-sdk');
+
+AWS.config.setPromisesDependency(require('bluebird'));
+
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+module.exports.submit = async (event) => {
+  const requestBody = JSON.parse(event.body);
+  const fullname = requestBody.fullname;
+  const email = requestBody.email;
+  const experience = requestBody.experience;
+
+  if(typeof fullname !== 'string' || typeof email !== 'string' || typeof experience !== 'number'){
+    console.error('Validation failed ::: wrong data type');
+    return new Error('Couldn\'t submit candidate because of validation error');
+  }
+
+  try {
+    const res = await submitCandidateP(candidateInfo(fullname, email, experience));
+  return {
     statusCode: 200,
     body: JSON.stringify({
-      message: 'Go Serverless v1.0! Your function executed successfully!',
-      input: event,
-    }),
+      message: `Successfully submitted candidate with email ${email}`,
+      candinateId: res.id
+    })
   };
-
-  callback(null, response);
-
+  } catch (err) {
+    console.error(err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: `Unable to submit candidate with email ${email}`
+      })
+    }
+  }
 };
 
-// module.exports.submit = async (event) => {
-//   return {
-//     statusCode: 200,
-//     body: JSON.stringify(
-//       {
-//         message: 'Go Serverless v1.0! Your function executed successfully!',
-//         input: event,
-//       },
-//       null,
-//       2
-//     ),
-//   };
+async function submitCandidateP(candidate){
+  console.log('Submitting candidate');
+  const candidateInfo = {
+    TableName: process.env.CANDIDATE_TABLE,
+    Item: candidate,
+  };
+  const response = await dynamoDb.put(candidateInfo);
+  return response;
+};
 
-  // Use this code if you don't use the http event with the LAMBDA-PROXY integration
-  // return { message: 'Go Serverless v1.0! Your function executed successfully!', event };
-// };
+function candidateInfo(fullname, email, experience){
+  const timestamp = new Date().getTime();
+  return{
+    id: uuid.v1(),
+    fullname: fullname,
+    email: email,
+    experience: experience,
+    submittedAt: timestamp,
+    updateedAt: timestamp
+  };
+};
+
+
+
+
+
